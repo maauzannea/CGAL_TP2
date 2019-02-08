@@ -16,62 +16,124 @@ typedef Polyhedron::Facet_iterator Facet_iterator;
 typedef Polyhedron::Vertex_iterator Vertex_iterator;
 typedef Polyhedron::Halfedge_iterator Halfedge_iterator;
 typedef Polyhedron::Halfedge_around_facet_circulator Halfedge_facet_circulator;
-typedef std::map<Polyhedron::Facet_handle, double> Perim_map;
-typedef std::map<Polyhedron::Facet_handle, int> Color_map;
-typedef std::map<Polyhedron::Facet_handle, bool> Parcours_map;
-typedef std::vector<double> Color;
-typedef std::vector<Color> Vect_Color;
+typedef std::map<Polyhedron::Facet_handle, double> Vertex_double_map;
+typedef std::map<Polyhedron::Facet_handle, int> Vertex_int_map;
+typedef std::map<Polyhedron::Facet_handle, bool> Vertex_bool_map;
+typedef std::vector<double> Vect_double;
+typedef std::vector<int> Vect_int;
+typedef std::vector<Vect_double> Vect_Color;
 typedef std::queue<Polyhedron::Facet_handle> Facet_Queue;
 
-double maxPerim = 0.0;
-double minPerim = DBL_MAX;
-double moyPerim = 0.0;
+double maxMeasure = 0.0;
+double minMeasure = DBL_MAX;
+double moyMeasure = 0.0;
 
-void calculPerimetre(Polyhedron &mesh, Perim_map &map) {
+double maxArea = 0.0;
+double minArea = DBL_MAX;
+
+void calculPerimetre(Polyhedron &mesh, Vertex_double_map &map) {
 	Facet_iterator f_it = mesh.facets_begin();
 	int nbFacets = 0;
 	while (f_it != mesh.facets_end()) {
 		Halfedge_facet_circulator h_it = f_it->facet_begin();
 		CGAL_assertion(CGAL::circulator_size(h_it) >= 3);
-		double perim = 0;
+		double perim = 0.0;
 		do {
 			perim += sqrt(CGAL::squared_distance(h_it->vertex()->point(), h_it->opposite()->vertex()->point()));
 			++h_it;
 		} while (h_it != f_it->facet_begin());
-		if (perim > maxPerim) maxPerim = perim;
-		if (perim < minPerim) minPerim = perim;
+		if (perim > maxMeasure) maxMeasure = perim;
+		if (perim < minMeasure) minMeasure = perim;
 		map[f_it] = perim;
-		moyPerim += perim;
+		moyMeasure += perim;
 		++nbFacets;
 		++f_it;
 	}
-	moyPerim /= (double) nbFacets;
+	moyMeasure /= (double) nbFacets;
 }
 
-Color randColor() {
-	Color color;
+void calculAire(Polyhedron &mesh, Vertex_double_map &map) {
+	Facet_iterator f_it = mesh.facets_begin();
+	Vect_double dist;
+	double p, aire;
+	while (f_it != mesh.facets_end()) {
+		Halfedge_facet_circulator h_it = f_it->facet_begin();
+		CGAL_assertion(CGAL::circulator_size(h_it) >= 3);
+		do {
+			dist.push_back(sqrt(CGAL::squared_distance(h_it->vertex()->point(), h_it->opposite()->vertex()->point())));
+			++h_it;
+		} while (h_it != f_it->facet_begin());
+		p = (dist[0] + dist[1] + dist[2])/2;
+		aire = sqrt(p * (p - dist[0]) * (p - dist[1]) * (p - dist[2]));
+		map[f_it] = aire;
+		if (aire > maxArea) maxArea = aire;
+		if (aire < minArea) minArea = aire;
+		++f_it;
+	}
+}
+
+Vect_double randColor() {
+	Vect_double color;
 	for (int i = 0 ; i < 3 ; ++i) color.push_back((double) std::rand() / (double) RAND_MAX);
 	return color;
 }
 
-void calculClasses(Polyhedron &mesh, Perim_map &perim_map, Color_map &color_map) {
+void calculClasses(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_map &color_map) {
 	Facet_iterator f_it = mesh.facets_begin();
 	while (f_it != mesh.facets_end()) {
-		if (perim_map[f_it] < moyPerim) color_map[f_it] = 0;
+		if (measure_map[f_it] < moyMeasure) color_map[f_it] = 0;
 		else color_map[f_it] = 1;
 		++f_it;
 	}
 }
 
-int seuilByOtsu(Polyhedron &mesh, Perim_map &perim_map, Color_map &color_map) {
-	return 0;
+void seuilByOtsu(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_map &color_map) {
+	Vect_int histo = Vect_int(64);
+	Vect_int::iterator it = histo.begin();
+	int section, threshold = 0;
+	int nbFacets = measure_map.size();
+	int sum = 0, sumB = 0, q1 = 0, q2;
+	double u1, u2, current, max = 0.0;
+	Vertex_double_map aire_map;
+	calculAire(mesh, aire_map);
+	while (it != histo.end()) {
+		*it = 0;
+		++it;
+	}
+	Facet_iterator f_it = mesh.facets_begin();
+	while (f_it != mesh.facets_end()) {
+		section = ((measure_map[f_it] - minMeasure) / (maxMeasure- minMeasure)) * 64;
+		histo[section] += ((aire_map[f_it] - minArea) / (maxArea - minArea)) * 100;
+		++f_it;
+	}
+	for (int i = 0; i < 63; ++i) {
+		sum += i * histo[i];
+	}
+	for (int i = 0; i < 63; ++i) {
+		q1 += histo[i];
+		if (q1 == 0) continue;
+		q2 = nbFacets - q1;
+		sumB += i * histo[i];
+		u1 = (double)sumB / (double)q1;
+		u2 = (double)(sum - sumB) / (double)q2;
+		current = (double)q1 * (double)q2 * (u1 - u2) * (u1 - u2);
+		if (current > max) {
+			threshold = i;
+			max = current;
+		}
+	}
+	for (f_it = mesh.facets_begin() ; f_it != mesh.facets_end() ; ++f_it) {
+		section = (measure_map[f_it] - minMeasure) / (maxMeasure- minMeasure) * 64;
+		if (section < threshold) color_map[f_it] = 0;
+		else color_map[f_it] = 1;
+	}
 }
 
-int segmentationComposantesConnexes(Polyhedron &mesh, Color_map &map, Color_map &def_map) {
+int segmentationComposantesConnexes(Polyhedron &mesh, Vertex_int_map &map, Vertex_int_map &def_map) {
 	int numComposante = 0;
 	int segCourante;
 	Facet_Queue queue;
-	Parcours_map parcours;
+	Vertex_bool_map parcours;
 	Facet_iterator f_it = mesh.facets_begin();
 	Polyhedron::Facet_handle s;
 	while (f_it != mesh.facets_end()) {
@@ -102,7 +164,7 @@ int segmentationComposantesConnexes(Polyhedron &mesh, Color_map &map, Color_map 
 	return numComposante;
 }
 
-void colorMesh(Polyhedron &mesh, Color_map &map, const char *filename, int nbComposantes) {
+void colorMesh(Polyhedron &mesh, Vertex_int_map &map, const char *filename, int nbComposantes) {
 	std::fstream output(filename);
 	output << "OFF" << std::endl; //ligne d'entête
 	output << mesh.size_of_vertices() << " " << mesh.size_of_facets() << " 0" << std::endl; //infos sur le mesh
@@ -125,8 +187,8 @@ void colorMesh(Polyhedron &mesh, Color_map &map, const char *filename, int nbCom
 }
 
 int main(int argc, char *argv[]) {
-	if (argc < 2) {
-		std::cerr << "Il manque un paramètre au programme. Veuillez lui donner en entrée un nom de fichier au format off." << std::endl;
+	if (argc < 3) {
+		std::cerr << "Il manque un paramètre au programme. Veuillez lui donner en entrée un nom de fichier au format off et un type de seuillage (n pour normal, o pour otsu)." << std::endl;
 		return 1;
 	}
 	
@@ -137,15 +199,27 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
+	char type = *(argv[2]);
+	if (type != 'n' && type != 'o') {
+		std::cerr << "Le type de seuillage est incorrect." << std::endl;
+		return 1;
+	}
+	
 	std::srand(std::time(0));
 	
-	Perim_map perim_map;
-	Color_map color_map, def_color_map;
+	Vertex_double_map perim_map;
+	Vertex_int_map color_map, def_color_map;
 	int nbComposantes;
 	calculPerimetre(mesh, perim_map);
-	calculClasses(mesh, perim_map, color_map);
+	
+	if (type == 'n') {
+		calculClasses(mesh, perim_map, color_map);
+	} else if (type == 'o') {
+		seuilByOtsu(mesh, perim_map, color_map);
+	}
+	
 	nbComposantes = segmentationComposantesConnexes(mesh, color_map, def_color_map);
-	std::cout << nbComposantes << std::endl;
+	std::cout << "Nb Composantes : " << nbComposantes << std::endl;
 	
 	std::string filename = "resultMesh.off";
 	colorMesh(mesh, def_color_map, filename.c_str(), nbComposantes);
