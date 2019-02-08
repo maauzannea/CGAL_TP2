@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/TP2/src/seuillage.cpp
+/home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/src/seuillage.cpp
 CGAL/Exact_predicates_inexact_constructions_kernel.h
 -
 CGAL/boost/graph/graph_traits_Polyhedron_3.h
