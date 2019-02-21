@@ -68,7 +68,7 @@ void calculPlusPetitAngle(Polyhedron &mesh, Facet_double_map &map) {
 	double angle1, angle2, angle3, minAngle;
 	int nbFacets = 0;
 	while (f_it != mesh.facets_end()) {
-		minAngle = DBL_MAX;
+		points.clear();
 		Halfedge_facet_circulator h_it = f_it->facet_begin();
 		CGAL_assertion(CGAL::circulator_size(h_it) >= 3);
 		do {
@@ -88,7 +88,7 @@ void calculPlusPetitAngle(Polyhedron &mesh, Facet_double_map &map) {
 		++nbFacets;
 		++f_it;
 	}
-	moyMeasure /= (double) nbFacets;
+	moyMeasure /= (double)(nbFacets);
 }
 
 void calculAireOtsu(Polyhedron &mesh, Facet_double_map &map) {
@@ -226,9 +226,10 @@ void colorMesh(Polyhedron &mesh, Facet_int_map &map, const char *filename, int n
 }
 
 int main(int argc, char *argv[]) {
-	if (argc < 4) {
+	if (argc < 5) {
 		std::cerr << "Il manque un paramètre au programme. Veuillez lui donner en entrée un nom de fichier au format off, " 
-		          << "une mesure de segmentation (p pour périmètre, a pour angle) et un type de seuillage (n pour normal, o pour otsu)." << std::endl;
+		          << "une mesure de segmentation (p pour périmètre, a pour angle), un type de seuillage (n pour normal, o pour otsu) " 
+		          << "et la segmentation en composantes connexes (o) ou non (n)" << std::endl;
 		return 1;
 	}
 	
@@ -251,6 +252,12 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
+	char cc = *(argv[4]);
+	if (type != 'o' && type != 'n') {
+		std::cerr << "La segmentation en composantes connexes est mal définie." << std::endl;
+		return 1;
+	}
+	
 	std::srand(std::time(0));
 	
 	Facet_double_map measure_map;
@@ -269,11 +276,15 @@ int main(int argc, char *argv[]) {
 		seuilByOtsu(mesh, measure_map, color_map);
 	}
 	
-	nbComposantes = segmentationComposantesConnexes(mesh, color_map, def_color_map);
-	std::cout << "Nb Composantes : " << nbComposantes << std::endl;
-	
 	std::string filename = "resultMesh.off";
-	colorMesh(mesh, def_color_map, filename.c_str(), nbComposantes);
 	
+	if (cc == 'o') {
+		nbComposantes = segmentationComposantesConnexes(mesh, color_map, def_color_map);
+		std::cout << "Nb Composantes : " << nbComposantes << std::endl;
+		colorMesh(mesh, def_color_map, filename.c_str(), nbComposantes);
+	} else {
+		std::cout << "Nb Composantes : " << 2 << std::endl;
+		colorMesh(mesh, color_map, filename.c_str(), 2);
+	}
 	return 0;
 }
