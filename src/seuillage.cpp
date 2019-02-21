@@ -11,14 +11,15 @@
 #include <queue>
 typedef CGAL::Exact_predicates_inexact_constructions_kernel Kernel;
 typedef CGAL::Polyhedron_3<Kernel> Polyhedron;
+typedef CGAL::Vector_3<Kernel> Vector3;
 typedef Kernel::Point_3 Point_3;
 typedef Polyhedron::Facet_iterator Facet_iterator;
 typedef Polyhedron::Vertex_iterator Vertex_iterator;
 typedef Polyhedron::Halfedge_iterator Halfedge_iterator;
 typedef Polyhedron::Halfedge_around_facet_circulator Halfedge_facet_circulator;
-typedef std::map<Polyhedron::Facet_handle, double> Vertex_double_map;
-typedef std::map<Polyhedron::Facet_handle, int> Vertex_int_map;
-typedef std::map<Polyhedron::Facet_handle, bool> Vertex_bool_map;
+typedef std::map<Polyhedron::Facet_handle, double> Facet_double_map;
+typedef std::map<Polyhedron::Facet_handle, int> Facet_int_map;
+typedef std::map<Polyhedron::Facet_handle, bool> Facet_bool_map;
 typedef std::vector<double> Vect_double;
 typedef std::vector<int> Vect_int;
 typedef std::vector<Vect_double> Vect_Color;
@@ -31,7 +32,7 @@ double moyMeasure = 0.0;
 double maxArea = 0.0;
 double minArea = DBL_MAX;
 
-void calculPerimetre(Polyhedron &mesh, Vertex_double_map &map) {
+void calculPerimetre(Polyhedron &mesh, Facet_double_map &map) {
 	Facet_iterator f_it = mesh.facets_begin();
 	int nbFacets = 0;
 	while (f_it != mesh.facets_end()) {
@@ -52,7 +53,45 @@ void calculPerimetre(Polyhedron &mesh, Vertex_double_map &map) {
 	moyMeasure /= (double) nbFacets;
 }
 
-void calculAire(Polyhedron &mesh, Vertex_double_map &map) {
+double computeAngle(const Point_3 & p1, const Point_3 & p2, const Point_3 & p3) {
+	auto v1 = (p1 - p2);
+	v1 = v1 / sqrt(v1 * v1);
+	auto v2 = p3 - p2;
+	v2 = v2 / sqrt(v2 * v2);
+	auto n = CGAL::cross_product(v1, v2);
+	return asin(n * n);
+}
+
+void calculPlusPetitAngle(Polyhedron &mesh, Facet_double_map &map) {
+	Facet_iterator f_it = mesh.facets_begin();
+	std::vector<Point_3> points;
+	double angle1, angle2, angle3, minAngle;
+	int nbFacets = 0;
+	while (f_it != mesh.facets_end()) {
+		minAngle = DBL_MAX;
+		Halfedge_facet_circulator h_it = f_it->facet_begin();
+		CGAL_assertion(CGAL::circulator_size(h_it) >= 3);
+		do {
+			points.push_back(h_it->vertex()->point());
+			++h_it;
+		} while (h_it != f_it->facet_begin());
+		angle1 = computeAngle(points[0], points[1], points[2]);
+		angle2 = computeAngle(points[1], points[2], points[0]);
+		angle3 = computeAngle(points[2], points[0], points[1]);
+		minAngle = angle1;
+		if (angle2 < minAngle) minAngle = angle2;
+		if (angle3 < minAngle) minAngle = angle3;
+		map[f_it] = minAngle;
+		if (minAngle > maxMeasure) maxMeasure = minAngle;
+		if (minAngle < minMeasure) minMeasure = minAngle;
+		moyMeasure += minAngle;
+		++nbFacets;
+		++f_it;
+	}
+	moyMeasure /= (double) nbFacets;
+}
+
+void calculAireOtsu(Polyhedron &mesh, Facet_double_map &map) {
 	Facet_iterator f_it = mesh.facets_begin();
 	Vect_double dist;
 	double p, aire;
@@ -78,7 +117,7 @@ Vect_double randColor() {
 	return color;
 }
 
-void calculClasses(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_map &color_map) {
+void calculClasses(Polyhedron &mesh, Facet_double_map &measure_map, Facet_int_map &color_map) {
 	Facet_iterator f_it = mesh.facets_begin();
 	while (f_it != mesh.facets_end()) {
 		if (measure_map[f_it] < moyMeasure) color_map[f_it] = 0;
@@ -87,22 +126,22 @@ void calculClasses(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_
 	}
 }
 
-void seuilByOtsu(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_map &color_map) {
+void seuilByOtsu(Polyhedron &mesh, Facet_double_map &measure_map, Facet_int_map &color_map) {
 	Vect_int histo = Vect_int(64);
 	Vect_int::iterator it = histo.begin();
 	int section, threshold = 0;
 	int nbFacets = measure_map.size();
 	int sum = 0, sumB = 0, q1 = 0, q2;
 	double u1, u2, current, max = 0.0;
-	Vertex_double_map aire_map;
-	calculAire(mesh, aire_map);
+	Facet_double_map aire_map;
+	calculAireOtsu(mesh, aire_map);
 	while (it != histo.end()) {
 		*it = 0;
 		++it;
 	}
 	Facet_iterator f_it = mesh.facets_begin();
 	while (f_it != mesh.facets_end()) {
-		section = ((measure_map[f_it] - minMeasure) / (maxMeasure- minMeasure)) * 64;
+		section = ((measure_map[f_it] - minMeasure) / (maxMeasure - minMeasure)) * 64;
 		histo[section] += ((aire_map[f_it] - minArea) / (maxArea - minArea)) * 100;
 		++f_it;
 	}
@@ -129,11 +168,11 @@ void seuilByOtsu(Polyhedron &mesh, Vertex_double_map &measure_map, Vertex_int_ma
 	}
 }
 
-int segmentationComposantesConnexes(Polyhedron &mesh, Vertex_int_map &map, Vertex_int_map &def_map) {
+int segmentationComposantesConnexes(Polyhedron &mesh, Facet_int_map &map, Facet_int_map &def_map) {
 	int numComposante = 0;
 	int segCourante;
 	Facet_Queue queue;
-	Vertex_bool_map parcours;
+	Facet_bool_map parcours;
 	Facet_iterator f_it = mesh.facets_begin();
 	Polyhedron::Facet_handle s;
 	while (f_it != mesh.facets_end()) {
@@ -164,7 +203,7 @@ int segmentationComposantesConnexes(Polyhedron &mesh, Vertex_int_map &map, Verte
 	return numComposante;
 }
 
-void colorMesh(Polyhedron &mesh, Vertex_int_map &map, const char *filename, int nbComposantes) {
+void colorMesh(Polyhedron &mesh, Facet_int_map &map, const char *filename, int nbComposantes) {
 	std::fstream output(filename);
 	output << "OFF" << std::endl; //ligne d'entête
 	output << mesh.size_of_vertices() << " " << mesh.size_of_facets() << " 0" << std::endl; //infos sur le mesh
@@ -187,8 +226,9 @@ void colorMesh(Polyhedron &mesh, Vertex_int_map &map, const char *filename, int 
 }
 
 int main(int argc, char *argv[]) {
-	if (argc < 3) {
-		std::cerr << "Il manque un paramètre au programme. Veuillez lui donner en entrée un nom de fichier au format off et un type de seuillage (n pour normal, o pour otsu)." << std::endl;
+	if (argc < 4) {
+		std::cerr << "Il manque un paramètre au programme. Veuillez lui donner en entrée un nom de fichier au format off, " 
+		          << "une mesure de segmentation (p pour périmètre, a pour angle) et un type de seuillage (n pour normal, o pour otsu)." << std::endl;
 		return 1;
 	}
 	
@@ -199,7 +239,13 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
-	char type = *(argv[2]);
+	char mesure = *(argv[2]);
+	if (mesure != 'p' && mesure != 'a') {
+		std::cerr << "La mesure de segmentation est incorrecte." << std::endl;
+		return 1;
+	}
+	
+	char type = *(argv[3]);
 	if (type != 'n' && type != 'o') {
 		std::cerr << "Le type de seuillage est incorrect." << std::endl;
 		return 1;
@@ -207,15 +253,20 @@ int main(int argc, char *argv[]) {
 	
 	std::srand(std::time(0));
 	
-	Vertex_double_map perim_map;
-	Vertex_int_map color_map, def_color_map;
+	Facet_double_map measure_map;
+	Facet_int_map color_map, def_color_map;
 	int nbComposantes;
-	calculPerimetre(mesh, perim_map);
+	
+	if (mesure == 'p') {
+		calculPerimetre(mesh, measure_map);
+	} else if (mesure =='a') {
+		calculPlusPetitAngle(mesh, measure_map);
+	}
 	
 	if (type == 'n') {
-		calculClasses(mesh, perim_map, color_map);
+		calculClasses(mesh, measure_map, color_map);
 	} else if (type == 'o') {
-		seuilByOtsu(mesh, perim_map, color_map);
+		seuilByOtsu(mesh, measure_map, color_map);
 	}
 	
 	nbComposantes = segmentationComposantesConnexes(mesh, color_map, def_color_map);

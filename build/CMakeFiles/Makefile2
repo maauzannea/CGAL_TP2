@@ -54,45 +54,63 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/src
+CMAKE_SOURCE_DIR = /home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2
 
 # The top-level build directory on which CMake was run.
 CMAKE_BINARY_DIR = /home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/build
 
 #=============================================================================
-# Target rules for target CMakeFiles/seuillage.dir
+# Directory level rules for directory src
+
+# Convenience name for "all" pass in the directory.
+src/all: src/CMakeFiles/seuillage.dir/all
+
+.PHONY : src/all
+
+# Convenience name for "clean" pass in the directory.
+src/clean: src/CMakeFiles/seuillage.dir/clean
+
+.PHONY : src/clean
+
+# Convenience name for "preinstall" pass in the directory.
+src/preinstall:
+
+.PHONY : src/preinstall
+
+#=============================================================================
+# Target rules for target src/CMakeFiles/seuillage.dir
 
 # All Build rule for target.
-CMakeFiles/seuillage.dir/all:
-	$(MAKE) -f CMakeFiles/seuillage.dir/build.make CMakeFiles/seuillage.dir/depend
-	$(MAKE) -f CMakeFiles/seuillage.dir/build.make CMakeFiles/seuillage.dir/build
+src/CMakeFiles/seuillage.dir/all:
+	$(MAKE) -f src/CMakeFiles/seuillage.dir/build.make src/CMakeFiles/seuillage.dir/depend
+	$(MAKE) -f src/CMakeFiles/seuillage.dir/build.make src/CMakeFiles/seuillage.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/build/CMakeFiles --progress-num=1,2 "Built target seuillage"
-.PHONY : CMakeFiles/seuillage.dir/all
+.PHONY : src/CMakeFiles/seuillage.dir/all
 
 # Include target in all.
-all: CMakeFiles/seuillage.dir/all
+all: src/CMakeFiles/seuillage.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/seuillage.dir/rule: cmake_check_build_system
+src/CMakeFiles/seuillage.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/build/CMakeFiles 2
-	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/seuillage.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 src/CMakeFiles/seuillage.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/LOCAL.ISIMA.FR/maauzannea/Documents/CGAL/CGAL_TP2/build/CMakeFiles 0
-.PHONY : CMakeFiles/seuillage.dir/rule
+.PHONY : src/CMakeFiles/seuillage.dir/rule
 
 # Convenience name for target.
-seuillage: CMakeFiles/seuillage.dir/rule
+seuillage: src/CMakeFiles/seuillage.dir/rule
 
 .PHONY : seuillage
 
 # clean rule for target.
-CMakeFiles/seuillage.dir/clean:
-	$(MAKE) -f CMakeFiles/seuillage.dir/build.make CMakeFiles/seuillage.dir/clean
-.PHONY : CMakeFiles/seuillage.dir/clean
+src/CMakeFiles/seuillage.dir/clean:
+	$(MAKE) -f src/CMakeFiles/seuillage.dir/build.make src/CMakeFiles/seuillage.dir/clean
+.PHONY : src/CMakeFiles/seuillage.dir/clean
 
 # clean rule for target.
-clean: CMakeFiles/seuillage.dir/clean
+clean: src/CMakeFiles/seuillage.dir/clean
 
 .PHONY : clean
 
